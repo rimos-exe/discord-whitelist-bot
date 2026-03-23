@@ -288,7 +288,7 @@ async def setup_ybn(interaction: discord.Interaction):
             "**Welcome! 👋**\n\n"
             "We’re glad to have you here. Please fill out the information below to apply for access to the server.\n\n"
             "• **Name**\n• **Age**\n• **Experience**\n• **Steam Link**\n• **Invited By**\n\n"
-            "Once accepted, you will receive an interview link."
+            "▎ **Once accepted, you will receive an interview link.**"
         ),
         color=discord.Color.dark_gray()
     )
