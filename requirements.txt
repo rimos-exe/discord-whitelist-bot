@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 discord.py==2.3.2
+=======
+discord.py==2.3.2
+>>>>>>> f24a3e0fbed349824f670fa909f5cbd0ee8dde58
