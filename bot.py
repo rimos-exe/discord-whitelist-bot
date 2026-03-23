@@ -286,8 +286,8 @@ bot = Bot()
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_ybn(interaction: discord.Interaction):
-    # 1. Main Text Embed (Text + Button)
-    embed_text = discord.Embed(
+    # Back to a single embed for a cleaner, unified look
+    embed = discord.Embed(
         title="📝 YBN DZ Roleplay Whitelist",
         description=(
             "**Welcome! 👋**\n\n"
@@ -301,21 +301,16 @@ async def setup_ybn(interaction: discord.Interaction):
         ),
         color=discord.Color.dark_gray()
     )
-    embed_text.set_thumbnail(url=THUMBNAIL_URL)
     
-    # 2. Image-only Embed (Positioned at the bottom, under the button)
-    embed_image = discord.Embed(color=discord.Color.dark_gray())
-    embed_image.set_image(url=WHITELIST_IMAGE)
-    embed_image.set_footer(
+    # Keeping the branding elements inside the one box
+    embed.set_thumbnail(url=THUMBNAIL_URL)
+    embed.set_image(url=WHITELIST_IMAGE)
+    
+    embed.set_footer(
         text="© Code by rimos.exe | discord.gg/ybndz", 
         icon_url=THUMBNAIL_URL 
     )
-
-    # Sending text/button first, then the branding image
-    await interaction.channel.send(embed=embed_text, view=YBNView())
-    await interaction.channel.send(embed=embed_image)
     
-    await interaction.response.send_message("Whitelist setup complete!", ephemeral=True)
-
-if __name__ == "__main__":
-    bot.run(TOKEN)
+    # Send as one message with the button
+    await interaction.channel.send(embed=embed, view=YBNView())
+    await interaction.response.send_message("Whitelist layout reverted!", ephemeral=True)
