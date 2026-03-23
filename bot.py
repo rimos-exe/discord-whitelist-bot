@@ -240,7 +240,7 @@ class YBNView(discord.ui.View):
         self.cooldowns = {}
 
     @discord.ui.button(
-        label='APPLY WHITELIST', 
+        label='APPLY FOR WHITELIST', 
         style=discord.ButtonStyle.green, 
         custom_id='apply_btn',
         emoji='✅'
