@@ -15,7 +15,7 @@ GUILD_ID = discord.Object(id=1053841185694818414)
 LOG_CHANNEL_ID = 1482425084990849218       # Staff log where buttons appear
 ACCEPTED_CHANNEL_ID = 1481423477985644640  # Public "Congratulations" channel
 DENIED_CHANNEL_ID = 1468666605188812913    # Channel for denial logs
-INFO_LOG_CHANNEL_ID = 1468666603234267179  # NEW: Channel where full applicant info is stored
+INFO_LOG_CHANNEL_ID = 1468666603234267179  # Channel where full applicant info is stored
 INTERVIEW_CHANNEL_ID = 1468666567607718140 # Interview voice/text channel
 
 # Role IDs
@@ -74,10 +74,10 @@ class DenyModal(discord.ui.Modal, title="Deny Application"):
                 pass
 
             for item in self.view.children:
-                if item.custom_id in ["accept_user", "deny_user", "call_player"]:
+                if item.custom_id in ["accept_user", "deny_user"]:
                     item.disabled = True
+            
             await self.message.edit(content=f"❌ Denied by {self.staff.name}", view=self.view)
-
             await interaction.response.send_message("Denied publicly and DM sent.", ephemeral=True)
             applied_users.discard(self.applicant.id)
         except Exception as e:
@@ -102,15 +102,11 @@ class StaffActionView(discord.ui.View):
             accepted_channel = interaction.guild.get_channel(ACCEPTED_CHANNEL_ID)
             info_log_channel = interaction.guild.get_channel(INFO_LOG_CHANNEL_ID)
             
-            # --- AUTO ROLE ---
             whitelist_role = interaction.guild.get_role(WHITELISTED_ROLE_ID)
             if whitelist_role:
-                try:
-                    await self.applicant.add_roles(whitelist_role)
-                except:
-                    pass
+                try: await self.applicant.add_roles(whitelist_role)
+                except: pass
 
-            # --- EXTRACT DATA FROM ORIGINAL LOG ---
             original_embed = interaction.message.embeds[0]
             real_name = original_embed.fields[1].value
             real_age = original_embed.fields[2].value
@@ -118,7 +114,6 @@ class StaffActionView(discord.ui.View):
             steam_link = original_embed.fields[4].value
             invited_by = original_embed.fields[5].value
 
-            # --- 1. PUBLIC CONGRATULATIONS ---
             congrats_embed = discord.Embed(
                 title="Application Accepted ✅",
                 description=f"🎉 {self.applicant.mention} has been accepted to **YBN DZ**!\n\nWelcome. Please check your DMs for the next steps.",
@@ -128,7 +123,6 @@ class StaffActionView(discord.ui.View):
             if accepted_channel:
                 await accepted_channel.send(content=f"Congratulations {self.applicant.mention}!", embed=congrats_embed)
 
-            # --- 2. PRIVATE DATA LOG ---
             info_embed = discord.Embed(
                 title="Detailed Applicant Info 📋",
                 color=discord.Color.blue(),
@@ -145,17 +139,14 @@ class StaffActionView(discord.ui.View):
             if info_log_channel:
                 await info_log_channel.send(embed=info_embed)
 
-            # --- DMs ---
             try:
                 interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
                 invite = await interview_channel.create_invite(max_age=0, max_uses=0)
                 await self.applicant.send(f"🎉 Congratulations! You were accepted.\nJoin the interview here: {invite.url}")
-            except:
-                pass
+            except: pass
 
-            # Disable all buttons
             for item in self.children:
-                if item.custom_id in ["accept_user", "deny_user", "call_player"]:
+                if item.custom_id in ["accept_user", "deny_user"]:
                     item.disabled = True
             
             await interaction.edit_original_response(content=f"✅ Processed by {interaction.user.name}", view=self)
@@ -174,7 +165,7 @@ class StaffActionView(discord.ui.View):
             interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
             invite = await interview_channel.create_invite(max_age=0, max_uses=0)
             await self.applicant.send(f"📢 Staff is calling you for your interview!\nJoin here: {invite.url}")
-            await interaction.response.send_message("✅ Player called.", ephemeral=True)
+            await interaction.response.send_message(f"✅ Called {self.applicant.display_name}.", ephemeral=True)
         except:
             await interaction.response.send_message("⚠️ DMs locked.", ephemeral=True)
 
@@ -235,6 +226,8 @@ class Bot(commands.Bot):
 
 bot = Bot()
 
+# --- COMMANDS ---
+
 @bot.tree.command(name="setup_ybn_whitelist", description="Post the YBN DZ Whitelist message", guild=GUILD_ID)
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_ybn(interaction: discord.Interaction):
@@ -254,6 +247,15 @@ async def setup_ybn(interaction: discord.Interaction):
 
     await interaction.channel.send(embed=embed, view=YBNView())
     await interaction.response.send_message("Whitelist setup complete!", ephemeral=True)
+
+@bot.tree.command(name="clear_applicant", description="Allow a user to apply again", guild=GUILD_ID)
+@app_commands.checks.has_permissions(administrator=True)
+async def clear_applicant(interaction: discord.Interaction, user: discord.Member):
+    if user.id in applied_users:
+        applied_users.discard(user.id)
+        await interaction.response.send_message(f"✅ {user.mention} can now apply again.", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"ℹ️ {user.mention} is not in the active applicant list.", ephemeral=True)
 
 if __name__ == "__main__":
     bot.run(TOKEN)
