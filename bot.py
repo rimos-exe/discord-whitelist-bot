@@ -18,6 +18,7 @@ DENIED_CHANNEL_ID = 1468666605188812913
 INTERVIEW_CHANNEL_ID = 1468666567607718140
 STAFF_ROLE_ID = 1471815776783826975
 WHITELIST_TEAM_ROLE_ID = 1471815776783826975
+WHITELISTED_ROLE_ID = 1485673450411528355
 
 WHITELIST_IMAGE = "https://cdn.discordapp.com/attachments/1471892583474004018/1482428049541693471/WL.png"
 THUMBNAIL_URL = "https://cdn.discordapp.com/attachments/1471892583474004018/1484868157704503447/last_logo512.PNG"
@@ -98,49 +99,68 @@ class StaffActionView(discord.ui.View):
         try:
             await interaction.response.defer()
             accepted_channel = interaction.guild.get_channel(ACCEPTED_CHANNEL_ID)
-            interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
-
-            # 1. PUBLIC ACCEPT EMBED (RESTORED)
-            public_embed = discord.Embed(
-                description=f"🎉 {self.applicant.mention} has been **accepted**!",
-                color=discord.Color.green()
-            )
-            if interview_channel:
-                public_embed.add_field(name="Next Step 📢", value=f"Please join {interview_channel.mention} for your interview.", inline=False)
             
-            if accepted_channel:
-                await accepted_channel.send(embed=public_embed)
-
-            # 2. PRIVATE DM
-            if interview_channel:
+            # --- AUTO ROLE LOGIC ---
+            whitelist_role = interaction.guild.get_role(WHITELISTED_ROLE_ID)
+            if whitelist_role:
                 try:
-                    invite = await interview_channel.create_invite(max_age=0, max_uses=0)
-                    await self.applicant.send(f"🎉 Congratulations! Your application was accepted.\nJoin here: {invite.url}")
-                except discord.Forbidden:
+                    await self.applicant.add_roles(whitelist_role)
+                except:
                     pass
 
-            # 3. UPDATE STAFF LOG
+            # --- EXTRACT DATA FROM THE STAFF LOG EMBED ---
+            # Mapping based on your Modal order:
+            # fields[0] = User Mention
+            # fields[1] = Real Name
+            # fields[2] = Real Age
+            # fields[3] = Experience
+            # fields[4] = Steam Link
+            # fields[5] = Invited By
+            
+            original_embed = interaction.message.embeds[0]
+            real_name = original_embed.fields[1].value
+            real_age = original_embed.fields[2].value
+            experience = original_embed.fields[3].value
+            steam_link = original_embed.fields[4].value
+            invited_by = original_embed.fields[5].value
+
+            # --- CREATE THE "ACCEPTED" EMBED (MATCHES YOUR STYLE) ---
+            public_embed = discord.Embed(
+                title="Application Accepted ✅",
+                color=discord.Color.green(),
+                description=(
+                    f"**Applicant:** {self.applicant.mention}\n"
+                    f"**Accepted by:** {interaction.user.mention}\n\n"
+                    f"**Real Name:** {real_name}\n"
+                    f"**Real Age:** {real_age}\n"
+                    f"**Experience:** {experience}\n"
+                    f"**Steam Link:** {steam_link}\n"
+                    f"**Invited By:** {invited_by}"
+                )
+            )
+            public_embed.set_thumbnail(url=THUMBNAIL_URL)
+
+            if accepted_channel:
+                # This pings the user in the channel so they get a notification
+                await accepted_channel.send(content=f"Congratulations {self.applicant.mention}!", embed=public_embed)
+
+            # --- DMs & Button Cleanup ---
+            try:
+                interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
+                invite = await interview_channel.create_invite(max_age=0, max_uses=0)
+                await self.applicant.send(f"🎉 Congratulations! You were accepted to **YBN DZ**.\nJoin the interview here: {invite.url}")
+            except:
+                pass
+
             for item in self.children:
                 if item.custom_id in ["accept_user", "deny_user"]:
                     item.disabled = True
+            
             await interaction.edit_original_response(content=f"✅ Accepted by {interaction.user.name}", view=self)
             applied_users.discard(self.applicant.id)
+
         except Exception as e:
             await interaction.followup.send(f"⚠️ Error: {e}", ephemeral=True)
-
-    @discord.ui.button(label="Deny", style=discord.ButtonStyle.red, custom_id="deny_user")
-    async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(DenyModal(self.applicant, interaction.user, interaction.message, self))
-
-    @discord.ui.button(label="Call Player", style=discord.ButtonStyle.blurple, custom_id="call_player")
-    async def call(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
-            invite = await interview_channel.create_invite(max_age=0, max_uses=0)
-            await self.applicant.send(f"📢 Staff is calling you for your interview!\nJoin here: {invite.url}")
-            await interaction.response.send_message("✅ Player called.", ephemeral=True)
-        except:
-            await interaction.response.send_message("⚠️ DMs locked.", ephemeral=True)
 
 
 # --- APPLICATION FORM ---
@@ -213,11 +233,10 @@ class YBNDZModal(discord.ui.Modal, title='YBN DZ RolePlay Whitelist'):
         )
 
 
-# --- APPLY BUTTON WITH COOLDOWN ---
+# --- APPLY BUTTON (COOLDOWN REMOVED) ---
 class YBNView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        self.cooldowns = {}
 
     @discord.ui.button(
         label='APPLY FOR WHITELIST', 
@@ -226,19 +245,9 @@ class YBNView(discord.ui.View):
         emoji='✅'
     )
     async def apply(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user_id = interaction.user.id
-        if user_id in self.cooldowns:
-            await interaction.response.send_message("⏳ Please wait before applying again.", ephemeral=True)
-            return
-
-        self.cooldowns[user_id] = True
+        # The button now opens the modal immediately every time it's clicked.
+        # The 'applied_users' check inside YBNDZModal still prevents double submissions.
         await interaction.response.send_modal(YBNDZModal())
-
-        async def remove_cooldown():
-            await asyncio.sleep(60)
-            self.cooldowns.pop(user_id, None)
-        
-        asyncio.create_task(remove_cooldown())
 
 
 # --- BOT ---
