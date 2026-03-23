@@ -44,49 +44,44 @@ class DenyModal(discord.ui.Modal, title="Deny Application"):
     async def on_submit(self, interaction: discord.Interaction):
         try:
             denied_channel = interaction.guild.get_channel(DENIED_CHANNEL_ID)
-            if not denied_channel:
-                await interaction.response.send_message("❌ Denied channel not found.", ephemeral=True)
-                return
-
-            # --- 1. Public Denied Embed (Staff name hidden) ---
-            public_deny_embed = discord.Embed(
-                description=f"❌ {self.applicant.mention}, your application has been **denied**.",
-                color=discord.Color.red()
+            
+            # 1. PUBLIC DENY EMBED (MATCHES YOUR IMAGE)
+            embed = discord.Embed(
+                title="Application Denied ❌",
+                color=discord.Color.red(),
+                description=(
+                    f"**Applicant:** {self.applicant.mention}\n"
+                    f"**Denied by:** {self.staff.mention}\n"
+                    f"**Reason:** {self.reason.value}"
+                )
             )
-            public_deny_embed.add_field(name="Reason", value=self.reason.value)
-            await denied_channel.send(embed=public_deny_embed)
+            if denied_channel:
+                await denied_channel.send(embed=embed)
 
-            # --- 2. DM the Applicant Privately ---
+            # 2. PRIVATE DM
             try:
                 dm_embed = discord.Embed(
                     title="YBN DZ Whitelist Update",
-                    description=f"Hello, your application has been reviewed and unfortunately **denied**.",
+                    description=f"Hello, your application was reviewed and unfortunately **denied**.",
                     color=discord.Color.red()
                 )
                 dm_embed.add_field(name="Reason", value=self.reason.value)
-                dm_embed.set_footer(text="You can re-apply")
                 await self.applicant.send(embed=dm_embed)
             except discord.Forbidden:
-                await interaction.followup.send(f"⚠️ Could not DM {self.applicant.mention}.", ephemeral=True)
+                pass
 
-            # --- 3. Update Staff Log (Internal Tracking) ---
+            # 3. UPDATE STAFF LOG
             for item in self.view.children:
                 if item.custom_id in ["accept_user", "deny_user"]:
                     item.disabled = True
-
-            await self.message.edit(
-                content=f"❌ Denied by {self.staff.name}\n**Reason:** {self.reason.value}",
-                view=self.view
-            )
+            await self.message.edit(content=f"❌ Denied by {self.staff.name}", view=self.view)
 
             await interaction.response.send_message("Denied publicly and DM sent.", ephemeral=True)
             applied_users.discard(self.applicant.id)
-
         except Exception as e:
             await interaction.response.send_message(f"⚠️ Error: {e}", ephemeral=True)
 
-
-# --- STAFF BUTTONS ---
+# --- STAFF ACTION VIEW ---
 class StaffActionView(discord.ui.View):
     def __init__(self, applicant):
         super().__init__(timeout=None)
@@ -105,46 +100,31 @@ class StaffActionView(discord.ui.View):
             accepted_channel = interaction.guild.get_channel(ACCEPTED_CHANNEL_ID)
             interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
 
-            if not accepted_channel:
-                await interaction.followup.send("❌ Accepted channel not found.", ephemeral=True)
-                return
-
-            # --- Public Accept Embed (Staff name hidden) ---
+            # 1. PUBLIC ACCEPT EMBED (RESTORED)
             public_embed = discord.Embed(
                 description=f"🎉 {self.applicant.mention} has been **accepted**!",
                 color=discord.Color.green()
             )
             if interview_channel:
-                public_embed.add_field(
-                    name="Next Step 📢", 
-                    value=f"Please join {interview_channel.mention} for your interview.", 
-                    inline=False
-                )
-            await accepted_channel.send(embed=public_embed)
+                public_embed.add_field(name="Next Step 📢", value=f"Please join {interview_channel.mention} for your interview.", inline=False)
+            
+            if accepted_channel:
+                await accepted_channel.send(embed=public_embed)
 
-            # --- DM for Acceptance ---
+            # 2. PRIVATE DM
             if interview_channel:
                 try:
                     invite = await interview_channel.create_invite(max_age=0, max_uses=0)
-                    await self.applicant.send(
-                        f"🎉 Congratulations! Your application for **YBN DZ** was accepted.\n"
-                        f"Click here to join your interview: {invite.url}"
-                    )
+                    await self.applicant.send(f"🎉 Congratulations! Your application was accepted.\nJoin here: {invite.url}")
                 except discord.Forbidden:
-                    await accepted_channel.send(content=f"⚠️ Could not DM {self.applicant.mention}.", delete_after=10)
+                    pass
 
-            # Disable buttons
+            # 3. UPDATE STAFF LOG
             for item in self.children:
                 if item.custom_id in ["accept_user", "deny_user"]:
                     item.disabled = True
-
-            # Update Internal Staff Log
-            await interaction.edit_original_response(
-                content=f"✅ Accepted by {interaction.user.name}",
-                view=self
-            )
+            await interaction.edit_original_response(content=f"✅ Accepted by {interaction.user.name}", view=self)
             applied_users.discard(self.applicant.id)
-
         except Exception as e:
             await interaction.followup.send(f"⚠️ Error: {e}", ephemeral=True)
 
@@ -156,21 +136,11 @@ class StaffActionView(discord.ui.View):
     async def call(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
-            if not interview_channel:
-                await interaction.response.send_message("❌ Interview channel not found.", ephemeral=True)
-                return
-
-            try:
-                invite = await interview_channel.create_invite(max_age=0, max_uses=0)
-                await self.applicant.send(
-                    f"📢 Staff is calling you for your YBN DZ whitelist interview!\n"
-                    f"Join here: {invite.url}"
-                )
-                await interaction.response.send_message(f"✅ {self.applicant.mention} has been called via DM.", ephemeral=True)
-            except discord.Forbidden:
-                await interaction.response.send_message(f"⚠️ Cannot DM {self.applicant.mention}.", ephemeral=True)
-        except Exception as e:
-            await interaction.response.send_message(f"⚠️ Error: {e}", ephemeral=True)
+            invite = await interview_channel.create_invite(max_age=0, max_uses=0)
+            await self.applicant.send(f"📢 Staff is calling you for your interview!\nJoin here: {invite.url}")
+            await interaction.response.send_message("✅ Player called.", ephemeral=True)
+        except:
+            await interaction.response.send_message("⚠️ DMs locked.", ephemeral=True)
 
 
 # --- APPLICATION FORM ---
