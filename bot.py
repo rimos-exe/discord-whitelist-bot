@@ -48,28 +48,38 @@ class DenyModal(discord.ui.Modal, title="Deny Application"):
                 await interaction.response.send_message("❌ Denied channel not found.", ephemeral=True)
                 return
 
-            embed = discord.Embed(
-                title="Application Denied ❌",
-                color=discord.Color.red(),
-                description=(
-                    f"**Applicant:** {self.applicant.mention}\n"
-                    f"**Denied by:** {self.staff.mention}\n"
-                    f"**Reason:** {self.reason.value}"
-                )
+            # --- 1. Public Denied Embed (Staff name hidden) ---
+            public_deny_embed = discord.Embed(
+                description=f"❌ {self.applicant.mention}, your application has been **denied**.",
+                color=discord.Color.red()
             )
+            public_deny_embed.add_field(name="Reason", value=self.reason.value)
+            await denied_channel.send(embed=public_deny_embed)
 
-            await denied_channel.send(embed=embed)
+            # --- 2. DM the Applicant Privately ---
+            try:
+                dm_embed = discord.Embed(
+                    title="YBN DZ Whitelist Update",
+                    description=f"Hello, your application has been reviewed and unfortunately **denied**.",
+                    color=discord.Color.red()
+                )
+                dm_embed.add_field(name="Reason", value=self.reason.value)
+                dm_embed.set_footer(text="You can re-apply")
+                await self.applicant.send(embed=dm_embed)
+            except discord.Forbidden:
+                await interaction.followup.send(f"⚠️ Could not DM {self.applicant.mention}.", ephemeral=True)
 
+            # --- 3. Update Staff Log (Internal Tracking) ---
             for item in self.view.children:
                 if item.custom_id in ["accept_user", "deny_user"]:
                     item.disabled = True
 
             await self.message.edit(
-                content=f"❌ Denied by {self.staff.name}",
+                content=f"❌ Denied by {self.staff.name}\n**Reason:** {self.reason.value}",
                 view=self.view
             )
 
-            await interaction.response.send_message("Denied.", ephemeral=True)
+            await interaction.response.send_message("Denied publicly and DM sent.", ephemeral=True)
             applied_users.discard(self.applicant.id)
 
         except Exception as e:
@@ -99,27 +109,36 @@ class StaffActionView(discord.ui.View):
                 await interaction.followup.send("❌ Accepted channel not found.", ephemeral=True)
                 return
 
-            msg = f"🎉 {self.applicant.mention} accepted by {interaction.user.mention}"
+            # --- Public Accept Embed (Staff name hidden) ---
+            public_embed = discord.Embed(
+                description=f"🎉 {self.applicant.mention} has been **accepted**!",
+                color=discord.Color.green()
+            )
             if interview_channel:
-                msg += f"\nJoin {interview_channel.mention}"
-            await accepted_channel.send(msg)
+                public_embed.add_field(
+                    name="Next Step 📢", 
+                    value=f"Please join {interview_channel.mention} for your interview.", 
+                    inline=False
+                )
+            await accepted_channel.send(embed=public_embed)
 
+            # --- DM for Acceptance ---
             if interview_channel:
                 try:
                     invite = await interview_channel.create_invite(max_age=0, max_uses=0)
                     await self.applicant.send(
-                        f"🎉 Congratulations! Your application was accepted.\n"
+                        f"🎉 Congratulations! Your application for **YBN DZ** was accepted.\n"
                         f"Click here to join your interview: {invite.url}"
                     )
                 except discord.Forbidden:
-                    await accepted_channel.send(
-                        f"⚠️ Could not DM {self.applicant.mention}. They might have DMs disabled."
-                    )
+                    await accepted_channel.send(content=f"⚠️ Could not DM {self.applicant.mention}.", delete_after=10)
 
+            # Disable buttons
             for item in self.children:
                 if item.custom_id in ["accept_user", "deny_user"]:
                     item.disabled = True
 
+            # Update Internal Staff Log
             await interaction.edit_original_response(
                 content=f"✅ Accepted by {interaction.user.name}",
                 view=self
@@ -131,10 +150,7 @@ class StaffActionView(discord.ui.View):
 
     @discord.ui.button(label="Deny", style=discord.ButtonStyle.red, custom_id="deny_user")
     async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            await interaction.response.send_modal(DenyModal(self.applicant, interaction.user, interaction.message, self))
-        except Exception as e:
-            await interaction.followup.send(f"⚠️ Error: {e}", ephemeral=True)
+        await interaction.response.send_modal(DenyModal(self.applicant, interaction.user, interaction.message, self))
 
     @discord.ui.button(label="Call Player", style=discord.ButtonStyle.blurple, custom_id="call_player")
     async def call(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -150,15 +166,9 @@ class StaffActionView(discord.ui.View):
                     f"📢 Staff is calling you for your YBN DZ whitelist interview!\n"
                     f"Join here: {invite.url}"
                 )
-                await interaction.response.send_message(
-                    f"✅ {self.applicant.mention} has been called via DM.",
-                    ephemeral=True
-                )
+                await interaction.response.send_message(f"✅ {self.applicant.mention} has been called via DM.", ephemeral=True)
             except discord.Forbidden:
-                await interaction.response.send_message(
-                    f"⚠️ Cannot DM {self.applicant.mention}.",
-                    ephemeral=True
-                )
+                await interaction.response.send_message(f"⚠️ Cannot DM {self.applicant.mention}.", ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f"⚠️ Error: {e}", ephemeral=True)
 
