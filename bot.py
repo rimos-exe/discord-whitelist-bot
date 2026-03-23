@@ -281,7 +281,9 @@ bot = Bot()
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_ybn(interaction: discord.Interaction):
+    # --- ADDED BIG TITLE HERE ---
     embed = discord.Embed(
+        title="📝 YBN DZ Roleplay Whitelist",
         description=(
             "**Welcome! 👋**\n\n"
             "We’re glad to have you here. Please fill out the information below to apply for access to the server.\n\n"
@@ -293,10 +295,9 @@ async def setup_ybn(interaction: discord.Interaction):
     embed.set_image(url=WHITELIST_IMAGE)
     embed.set_thumbnail(url=THUMBNAIL_URL)
     
-    # --- UPDATED BRANDED FOOTER ---
     embed.set_footer(
         text="© Code by rimos.exe | discord.gg/ybndz", 
-        icon_url=THUMBNAIL_URL # Using the logo link you provided as the footer image
+        icon_url=THUMBNAIL_URL 
     )
     
     await interaction.channel.send(embed=embed, view=YBNView())
