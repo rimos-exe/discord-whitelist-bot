@@ -239,7 +239,12 @@ class YBNView(discord.ui.View):
         super().__init__(timeout=None)
         self.cooldowns = {}
 
-    @discord.ui.button(label='Apply', style=discord.ButtonStyle.green, custom_id='apply_btn')
+    @discord.ui.button(
+        label='APPLY FOR WHITELIST', 
+        style=discord.ButtonStyle.green, 
+        custom_id='apply_btn',
+        emoji='✅'
+    )
     async def apply(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_id = interaction.user.id
         if user_id in self.cooldowns:
@@ -281,26 +286,36 @@ bot = Bot()
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_ybn(interaction: discord.Interaction):
-    # --- ADDED BIG TITLE HERE ---
-    embed = discord.Embed(
+    # 1. Main Text Embed (Text + Button)
+    embed_text = discord.Embed(
         title="📝 YBN DZ Roleplay Whitelist",
         description=(
             "**Welcome! 👋**\n\n"
             "We’re glad to have you here. Please fill out the information below to apply for access to the server.\n\n"
-            "• **Name**\n• **Age**\n• **Experience**\n• **Steam Link**\n• **Invited By**\n\n"
+            "• **Name**\n"
+            "• **Age**\n"
+            "• **Experience**\n"
+            "• **Steam Link**\n"
+            "• **Invited By**\n\n"
             "> **Once accepted, you will receive an interview link.**"
         ),
         color=discord.Color.dark_gray()
     )
-    embed.set_image(url=WHITELIST_IMAGE)
-    embed.set_thumbnail(url=THUMBNAIL_URL)
+    embed_text.set_thumbnail(url=THUMBNAIL_URL)
     
-    embed.set_footer(
+    # 2. Image-only Embed (Positioned at the bottom, under the button)
+    embed_image = discord.Embed(color=discord.Color.dark_gray())
+    embed_image.set_image(url=WHITELIST_IMAGE)
+    embed_image.set_footer(
         text="© Code by rimos.exe | discord.gg/ybndz", 
         icon_url=THUMBNAIL_URL 
     )
+
+    # Sending text/button first, then the branding image
+    await interaction.channel.send(embed=embed_text, view=YBNView())
+    await interaction.channel.send(embed=embed_image)
     
-    await interaction.channel.send(embed=embed, view=YBNView())
     await interaction.response.send_message("Whitelist setup complete!", ephemeral=True)
 
-bot.run(TOKEN)
+if __name__ == "__main__":
+    bot.run(TOKEN)
