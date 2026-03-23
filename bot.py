@@ -78,7 +78,7 @@ class DenyModal(discord.ui.Modal, title="Deny Application"):
                     item.disabled = True
             
             await self.message.edit(content=f"❌ Denied by {self.staff.name}", view=self.view)
-            await interaction.response.send_message("Denied publicly and DM sent.", ephemeral=True)
+            await interaction.response.send_message("Denied and DM sent.", ephemeral=True)
             applied_users.discard(self.applicant.id)
         except Exception as e:
             await interaction.response.send_message(f"⚠️ Error: {e}", ephemeral=True)
@@ -101,12 +101,15 @@ class StaffActionView(discord.ui.View):
             await interaction.response.defer()
             accepted_channel = interaction.guild.get_channel(ACCEPTED_CHANNEL_ID)
             info_log_channel = interaction.guild.get_channel(INFO_LOG_CHANNEL_ID)
+            interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
             
+            # --- AUTO ROLE ---
             whitelist_role = interaction.guild.get_role(WHITELISTED_ROLE_ID)
             if whitelist_role:
                 try: await self.applicant.add_roles(whitelist_role)
                 except: pass
 
+            # --- EXTRACT DATA ---
             original_embed = interaction.message.embeds[0]
             real_name = original_embed.fields[1].value
             real_age = original_embed.fields[2].value
@@ -114,15 +117,25 @@ class StaffActionView(discord.ui.View):
             steam_link = original_embed.fields[4].value
             invited_by = original_embed.fields[5].value
 
+            # --- 1. CLEAN PUBLIC EMBED (TAGS INSIDE ONLY) ---
             congrats_embed = discord.Embed(
-                title="Application Accepted ✅",
-                description=f"🎉 {self.applicant.mention} has been accepted to **YBN DZ**!\n\nWelcome. Please check your DMs for the next steps.",
+                title="APPLICATION ACCEPTED ✅",
+                description=(
+                    f"🎉 {self.applicant.mention} has been accepted to **YBN DZ**!\n\n"
+                    f"**Welcome!** Please proceed to {interview_channel.mention if interview_channel else '#interview'} "
+                    "for your final briefing.\n\n"
+                    "> Check your DMs for your private invite link."
+                ),
                 color=discord.Color.green()
             )
             congrats_embed.set_thumbnail(url=THUMBNAIL_URL)
+            congrats_embed.set_footer(text="YBN DZ Roleplay • Whitelist System", icon_url=THUMBNAIL_URL)
+            
             if accepted_channel:
-                await accepted_channel.send(content=f"Congratulations {self.applicant.mention}!", embed=congrats_embed)
+                # Removed 'content=' so no external tag/text is sent
+                await accepted_channel.send(embed=congrats_embed)
 
+            # --- 2. PRIVATE DATA LOG ---
             info_embed = discord.Embed(
                 title="Detailed Applicant Info 📋",
                 color=discord.Color.blue(),
@@ -139,12 +152,13 @@ class StaffActionView(discord.ui.View):
             if info_log_channel:
                 await info_log_channel.send(embed=info_embed)
 
+            # --- DMs ---
             try:
-                interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
                 invite = await interview_channel.create_invite(max_age=0, max_uses=0)
                 await self.applicant.send(f"🎉 Congratulations! You were accepted.\nJoin the interview here: {invite.url}")
             except: pass
 
+            # Disable Accept/Deny, keep Call Player
             for item in self.children:
                 if item.custom_id in ["accept_user", "deny_user"]:
                     item.disabled = True
