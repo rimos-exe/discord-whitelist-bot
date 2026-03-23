@@ -240,7 +240,7 @@ class YBNView(discord.ui.View):
         self.cooldowns = {}
 
     @discord.ui.button(
-        label='APPLY FOR WHITELIST', 
+        label='APPLY WHITELIST', 
         style=discord.ButtonStyle.green, 
         custom_id='apply_btn',
         emoji='✅'
@@ -286,7 +286,7 @@ bot = Bot()
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_ybn(interaction: discord.Interaction):
-    # Back to a single embed for a cleaner, unified look
+    # Back to a single embed for a clean, unified look
     embed = discord.Embed(
         title="📝 YBN DZ Roleplay Whitelist",
         description=(
@@ -302,7 +302,7 @@ async def setup_ybn(interaction: discord.Interaction):
         color=discord.Color.dark_gray()
     )
     
-    # Keeping the branding elements inside the one box
+    # Adding branding inside the same frame
     embed.set_thumbnail(url=THUMBNAIL_URL)
     embed.set_image(url=WHITELIST_IMAGE)
     
@@ -310,7 +310,10 @@ async def setup_ybn(interaction: discord.Interaction):
         text="© Code by rimos.exe | discord.gg/ybndz", 
         icon_url=THUMBNAIL_URL 
     )
-    
-    # Send as one message with the button
+
+    # Send as one message with the button directly below it
     await interaction.channel.send(embed=embed, view=YBNView())
-    await interaction.response.send_message("Whitelist layout reverted!", ephemeral=True)
+    await interaction.response.send_message("Whitelist setup complete!", ephemeral=True)
+
+if __name__ == "__main__":
+    bot.run(TOKEN)
