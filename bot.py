@@ -20,11 +20,10 @@ STAFF_ROLE_ID = 1471815776783826975
 WHITELIST_TEAM_ROLE_ID = 1471815776783826975
 
 WHITELIST_IMAGE = "https://cdn.discordapp.com/attachments/1471892583474004018/1482428049541693471/WL.png"
-THUMBNAIL_URL = "https://cdn.discordapp.com/attachments/1471892583474004018/1484868157704503447/last_logo512.PNG?ex=69c26dbc&is=69c11c3c&hm=b80f9564c263afe3e3e6d1e9ff653a468e48ec16033480f36c909b6a9d2c2426&"
+THUMBNAIL_URL = "https://cdn.discordapp.com/attachments/1471892583474004018/1484868157704503447/last_logo512.PNG"
 
-# --- TRACK APPLICANTS TO PREVENT DOUBLE APPLICATION ---
+# --- TRACK APPLICANTS ---
 applied_users = set()
-
 
 # --- DENY MODAL ---
 class DenyModal(discord.ui.Modal, title="Deny Application"):
@@ -93,7 +92,6 @@ class StaffActionView(discord.ui.View):
     async def accept(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             await interaction.response.defer()
-
             accepted_channel = interaction.guild.get_channel(ACCEPTED_CHANNEL_ID)
             interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
 
@@ -126,7 +124,6 @@ class StaffActionView(discord.ui.View):
                 content=f"✅ Accepted by {interaction.user.name}",
                 view=self
             )
-
             applied_users.discard(self.applicant.id)
 
         except Exception as e:
@@ -162,7 +159,6 @@ class StaffActionView(discord.ui.View):
                     f"⚠️ Cannot DM {self.applicant.mention}.",
                     ephemeral=True
                 )
-
         except Exception as e:
             await interaction.response.send_message(f"⚠️ Error: {e}", ephemeral=True)
 
@@ -296,6 +292,13 @@ async def setup_ybn(interaction: discord.Interaction):
     )
     embed.set_image(url=WHITELIST_IMAGE)
     embed.set_thumbnail(url=THUMBNAIL_URL)
+    
+    # --- UPDATED BRANDED FOOTER ---
+    embed.set_footer(
+        text="© Code by rimos.exe | discord.gg/ybndz", 
+        icon_url=THUMBNAIL_URL # Using the logo link you provided as the footer image
+    )
+    
     await interaction.channel.send(embed=embed, view=YBNView())
     await interaction.response.send_message("Whitelist setup complete!", ephemeral=True)
 
