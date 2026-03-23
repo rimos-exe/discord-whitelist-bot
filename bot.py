@@ -11,15 +11,19 @@ if not TOKEN:
 
 GUILD_ID = discord.Object(id=1053841185694818414)
 
-LOG_CHANNEL_ID = 1482425084990849218
-ACCEPTED_CHANNEL_ID = 1481423477985644640
-DENIED_CHANNEL_ID = 1468666605188812913
+# Channel IDs
+LOG_CHANNEL_ID = 1482425084990849218       # Staff log where buttons appear
+ACCEPTED_CHANNEL_ID = 1481423477985644640  # Public "Congratulations" channel
+DENIED_CHANNEL_ID = 1468666605188812913    # Channel for denial logs
+INFO_LOG_CHANNEL_ID = 1468666603234267179  # NEW: Channel where full applicant info is stored
+INTERVIEW_CHANNEL_ID = 1468666567607718140 # Interview voice/text channel
 
-INTERVIEW_CHANNEL_ID = 1468666567607718140
+# Role IDs
 STAFF_ROLE_ID = 1471815776783826975
 WHITELIST_TEAM_ROLE_ID = 1471815776783826975
 WHITELISTED_ROLE_ID = 1485673450411528355
 
+# Branding
 WHITELIST_IMAGE = "https://cdn.discordapp.com/attachments/1471892583474004018/1482428049541693471/WL.png"
 THUMBNAIL_URL = "https://cdn.discordapp.com/attachments/1471892583474004018/1484868157704503447/last_logo512.PNG"
 
@@ -46,7 +50,6 @@ class DenyModal(discord.ui.Modal, title="Deny Application"):
         try:
             denied_channel = interaction.guild.get_channel(DENIED_CHANNEL_ID)
             
-            # 1. PUBLIC DENY EMBED (MATCHES YOUR IMAGE)
             embed = discord.Embed(
                 title="Application Denied ❌",
                 color=discord.Color.red(),
@@ -59,7 +62,6 @@ class DenyModal(discord.ui.Modal, title="Deny Application"):
             if denied_channel:
                 await denied_channel.send(embed=embed)
 
-            # 2. PRIVATE DM
             try:
                 dm_embed = discord.Embed(
                     title="YBN DZ Whitelist Update",
@@ -71,9 +73,8 @@ class DenyModal(discord.ui.Modal, title="Deny Application"):
             except discord.Forbidden:
                 pass
 
-            # 3. UPDATE STAFF LOG
             for item in self.view.children:
-                if item.custom_id in ["accept_user", "deny_user"]:
+                if item.custom_id in ["accept_user", "deny_user", "call_player"]:
                     item.disabled = True
             await self.message.edit(content=f"❌ Denied by {self.staff.name}", view=self.view)
 
@@ -99,8 +100,9 @@ class StaffActionView(discord.ui.View):
         try:
             await interaction.response.defer()
             accepted_channel = interaction.guild.get_channel(ACCEPTED_CHANNEL_ID)
+            info_log_channel = interaction.guild.get_channel(INFO_LOG_CHANNEL_ID)
             
-            # --- AUTO ROLE LOGIC ---
+            # --- AUTO ROLE ---
             whitelist_role = interaction.guild.get_role(WHITELISTED_ROLE_ID)
             if whitelist_role:
                 try:
@@ -108,15 +110,7 @@ class StaffActionView(discord.ui.View):
                 except:
                     pass
 
-            # --- EXTRACT DATA FROM THE STAFF LOG EMBED ---
-            # Mapping based on your Modal order:
-            # fields[0] = User Mention
-            # fields[1] = Real Name
-            # fields[2] = Real Age
-            # fields[3] = Experience
-            # fields[4] = Steam Link
-            # fields[5] = Invited By
-            
+            # --- EXTRACT DATA FROM ORIGINAL LOG ---
             original_embed = interaction.message.embeds[0]
             real_name = original_embed.fields[1].value
             real_age = original_embed.fields[2].value
@@ -124,98 +118,84 @@ class StaffActionView(discord.ui.View):
             steam_link = original_embed.fields[4].value
             invited_by = original_embed.fields[5].value
 
-            # --- CREATE THE "ACCEPTED" EMBED (MATCHES YOUR STYLE) ---
-            public_embed = discord.Embed(
+            # --- 1. PUBLIC CONGRATULATIONS ---
+            congrats_embed = discord.Embed(
                 title="Application Accepted ✅",
-                color=discord.Color.green(),
+                description=f"🎉 {self.applicant.mention} has been accepted to **YBN DZ**!\n\nWelcome. Please check your DMs for the next steps.",
+                color=discord.Color.green()
+            )
+            congrats_embed.set_thumbnail(url=THUMBNAIL_URL)
+            if accepted_channel:
+                await accepted_channel.send(content=f"Congratulations {self.applicant.mention}!", embed=congrats_embed)
+
+            # --- 2. PRIVATE DATA LOG ---
+            info_embed = discord.Embed(
+                title="Detailed Applicant Info 📋",
+                color=discord.Color.blue(),
                 description=(
-                    f"**Applicant:** {self.applicant.mention}\n"
+                    f"**Applicant:** {self.applicant.mention} ({self.applicant.id})\n"
                     f"**Accepted by:** {interaction.user.mention}\n\n"
                     f"**Real Name:** {real_name}\n"
-                    f"**Real Age:** {real_age}\n"
+                    f"**Age:** {real_age}\n"
                     f"**Experience:** {experience}\n"
-                    f"**Steam Link:** {steam_link}\n"
+                    f"**Steam:** {steam_link}\n"
                     f"**Invited By:** {invited_by}"
                 )
             )
-            public_embed.set_thumbnail(url=THUMBNAIL_URL)
+            if info_log_channel:
+                await info_log_channel.send(embed=info_embed)
 
-            if accepted_channel:
-                # This pings the user in the channel so they get a notification
-                await accepted_channel.send(content=f"Congratulations {self.applicant.mention}!", embed=public_embed)
-
-            # --- DMs & Button Cleanup ---
+            # --- DMs ---
             try:
                 interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
                 invite = await interview_channel.create_invite(max_age=0, max_uses=0)
-                await self.applicant.send(f"🎉 Congratulations! You were accepted to **YBN DZ**.\nJoin the interview here: {invite.url}")
+                await self.applicant.send(f"🎉 Congratulations! You were accepted.\nJoin the interview here: {invite.url}")
             except:
                 pass
 
+            # Disable all buttons
             for item in self.children:
-                if item.custom_id in ["accept_user", "deny_user"]:
+                if item.custom_id in ["accept_user", "deny_user", "call_player"]:
                     item.disabled = True
             
-            await interaction.edit_original_response(content=f"✅ Accepted by {interaction.user.name}", view=self)
+            await interaction.edit_original_response(content=f"✅ Processed by {interaction.user.name}", view=self)
             applied_users.discard(self.applicant.id)
 
         except Exception as e:
             await interaction.followup.send(f"⚠️ Error: {e}", ephemeral=True)
 
+    @discord.ui.button(label="Deny", style=discord.ButtonStyle.red, custom_id="deny_user")
+    async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(DenyModal(self.applicant, interaction.user, interaction.message, self))
+
+    @discord.ui.button(label="Call Player", style=discord.ButtonStyle.blurple, custom_id="call_player")
+    async def call(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            interview_channel = interaction.guild.get_channel(INTERVIEW_CHANNEL_ID)
+            invite = await interview_channel.create_invite(max_age=0, max_uses=0)
+            await self.applicant.send(f"📢 Staff is calling you for your interview!\nJoin here: {invite.url}")
+            await interaction.response.send_message("✅ Player called.", ephemeral=True)
+        except:
+            await interaction.response.send_message("⚠️ DMs locked.", ephemeral=True)
 
 # --- APPLICATION FORM ---
 class YBNDZModal(discord.ui.Modal, title='YBN DZ RolePlay Whitelist'):
-
-    name_irl = discord.ui.TextInput(
-        label='Real Name',
-        placeholder='Enter your real name here',
-        required=True
-    )
-
-    real_age = discord.ui.TextInput(
-        label='Real Age',
-        placeholder='Example: 18',
-        min_length=1,
-        max_length=2,
-        required=True
-    )
-
-    experience = discord.ui.TextInput(
-        label='Experience',
-        style=discord.TextStyle.paragraph,
-        placeholder='Your Experience in RP',
-        required=True
-    )
-
-    steam_link = discord.ui.TextInput(
-        label='Steam Link',
-        style=discord.TextStyle.paragraph,
-        placeholder='https://steamcommunity.com/id/yourprofile',
-        required=True
-    )
-
-    story = discord.ui.TextInput(
-        label='Invited By',
-        style=discord.TextStyle.paragraph,
-        placeholder='Who invited you / Username ?',
-        required=True
-    )
+    name_irl = discord.ui.TextInput(label='Real Name', placeholder='Enter your real name here', required=True)
+    real_age = discord.ui.TextInput(label='Real Age', placeholder='Example: 18', min_length=1, max_length=2, required=True)
+    experience = discord.ui.TextInput(label='Experience', style=discord.TextStyle.paragraph, placeholder='Your Experience in RP', required=True)
+    steam_link = discord.ui.TextInput(label='Steam Link', style=discord.TextStyle.paragraph, placeholder='https://steamcommunity.com/id/yourprofile', required=True)
+    story = discord.ui.TextInput(label='Invited By', style=discord.TextStyle.paragraph, placeholder='Who invited you / Username ?', required=True)
 
     async def on_submit(self, interaction: discord.Interaction):
         if interaction.user.id in applied_users:
-            await interaction.response.send_message(
-                "❌ You already submitted an application.", ephemeral=True
-            )
+            await interaction.response.send_message("❌ You already submitted an application.", ephemeral=True)
             return
 
         applied_users.add(interaction.user.id)
-
         log_channel = interaction.guild.get_channel(LOG_CHANNEL_ID)
+        
         if log_channel:
-            embed = discord.Embed(
-                title="📥 New Application | YBN DZ",
-                color=discord.Color.dark_gray()
-            )
+            embed = discord.Embed(title="📥 New Application | YBN DZ", color=discord.Color.dark_gray())
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
             embed.add_field(name="User", value=interaction.user.mention, inline=False)
             embed.add_field(name="Real Name", value=self.name_irl.value, inline=False)
@@ -227,28 +207,16 @@ class YBNDZModal(discord.ui.Modal, title='YBN DZ RolePlay Whitelist'):
             whitelist_role = interaction.guild.get_role(WHITELIST_TEAM_ROLE_ID)
             await log_channel.send(content=whitelist_role.mention if whitelist_role else "", embed=embed, view=StaffActionView(interaction.user))
 
-        await interaction.response.send_message(
-            "✅ Your application has been sent to the staff!",
-            ephemeral=True
-        )
+        await interaction.response.send_message("✅ Your application has been sent to the staff!", ephemeral=True)
 
-
-# --- APPLY BUTTON (COOLDOWN REMOVED) ---
+# --- APPLY BUTTON ---
 class YBNView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(
-        label='APPLY FOR WHITELIST', 
-        style=discord.ButtonStyle.green, 
-        custom_id='apply_btn',
-        emoji='✅'
-    )
+    @discord.ui.button(label='APPLY FOR WHITELIST', style=discord.ButtonStyle.green, custom_id='apply_btn', emoji='✅')
     async def apply(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # The button now opens the modal immediately every time it's clicked.
-        # The 'applied_users' check inside YBNDZModal still prevents double submissions.
         await interaction.response.send_modal(YBNDZModal())
-
 
 # --- BOT ---
 class Bot(commands.Bot):
@@ -267,40 +235,23 @@ class Bot(commands.Bot):
 
 bot = Bot()
 
-# --- SETUP COMMAND ---
-@bot.tree.command(
-    name="setup_ybn_whitelist",
-    description="Post the YBN DZ Whitelist message",
-    guild=GUILD_ID
-)
+@bot.tree.command(name="setup_ybn_whitelist", description="Post the YBN DZ Whitelist message", guild=GUILD_ID)
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_ybn(interaction: discord.Interaction):
-    # Back to a single embed for a clean, unified look
     embed = discord.Embed(
         title="📝 YBN DZ Roleplay Whitelist",
         description=(
             "**Welcome! 👋**\n\n"
-            "We’re glad to have you here. Please fill out the information below to apply for access to the server.\n\n"
-            "• **Name**\n"
-            "• **Age**\n"
-            "• **Experience**\n"
-            "• **Steam Link**\n"
-            "• **Invited By**\n\n"
+            "We’re glad to have you here. Please fill out the information below to apply.\n\n"
+            "• **Name**\n• **Age**\n• **Experience**\n• **Steam Link**\n• **Invited By**\n\n"
             "> **Once accepted, you will receive an interview link.**"
         ),
         color=discord.Color.dark_gray()
     )
-    
-    # Adding branding inside the same frame
     embed.set_thumbnail(url=THUMBNAIL_URL)
     embed.set_image(url=WHITELIST_IMAGE)
-    
-    embed.set_footer(
-        text="© Code by rimos.exe | discord.gg/ybndz", 
-        icon_url=THUMBNAIL_URL 
-    )
+    embed.set_footer(text="© Code by rimos.exe | discord.gg/ybndz", icon_url=THUMBNAIL_URL)
 
-    # Send as one message with the button directly below it
     await interaction.channel.send(embed=embed, view=YBNView())
     await interaction.response.send_message("Whitelist setup complete!", ephemeral=True)
 
