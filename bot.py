@@ -20,6 +20,7 @@ STAFF_ROLE_ID = 1471815776783826975
 WHITELIST_TEAM_ROLE_ID = 1471815776783826975
 
 WHITELIST_IMAGE = "https://cdn.discordapp.com/attachments/1471892583474004018/1482428049541693471/WL.png"
+THUMBNAIL_URL = "https://cdn.discordapp.com/attachments/1471892583474004018/1484868157704503447/last_logo512.PNG?ex=69c26dbc&is=69c11c3c&hm=b80f9564c263afe3e3e6d1e9ff653a468e48ec16033480f36c909b6a9d2c2426&"
 
 # --- TRACK APPLICANTS TO PREVENT DOUBLE APPLICATION ---
 applied_users = set()
@@ -294,6 +295,7 @@ async def setup_ybn(interaction: discord.Interaction):
         color=discord.Color.dark_gray()
     )
     embed.set_image(url=WHITELIST_IMAGE)
+    embed.set_thumbnail(url=THUMBNAIL_URL)
     await interaction.channel.send(embed=embed, view=YBNView())
     await interaction.response.send_message("Whitelist setup complete!", ephemeral=True)
 
