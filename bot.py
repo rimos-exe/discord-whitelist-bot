@@ -15,7 +15,7 @@ GUILD_ID = discord.Object(id=1053841185694818414)
 LOG_CHANNEL_ID = 1482425084990849218       # Staff log where buttons appear
 ACCEPTED_CHANNEL_ID = 1481423477985644640  # Public "Congratulations" channel
 DENIED_CHANNEL_ID = 1468666605188812913    # Channel for denial logs
-INFO_LOG_CHANNEL_ID = 1468666603234267179  # Channel where full applicant info is stored
+INFO_LOG_CHANNEL_ID = 1485688291033354443  # Channel where full applicant info is stored
 INTERVIEW_CHANNEL_ID = 1468666567607718140 # Interview voice/text channel
 
 # Role IDs
