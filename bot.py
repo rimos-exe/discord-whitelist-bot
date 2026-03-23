@@ -255,7 +255,8 @@ class YBNView(discord.ui.View):
         async def remove_cooldown():
             await asyncio.sleep(60)
             self.cooldowns.pop(user_id, None)
-        async aspirations_task = asyncio.create_task(remove_cooldown())
+        
+        asyncio.create_task(remove_cooldown())
 
 
 # --- BOT ---
